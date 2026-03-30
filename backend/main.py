@@ -1,5 +1,3 @@
-
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -13,13 +11,16 @@ app = FastAPI(title="GreenPrint BDCI API")
 app.add_middleware(CORSMiddleware,
     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-model   = joblib.load("bdci_model.pkl")
-clf     = joblib.load("bdci_classifier.pkl")
-scaler  = joblib.load("bdci_scaler.pkl")
+model  = joblib.load("bdci_model.pkl")
+clf    = joblib.load("bdci_classifier.pkl")
+scaler = joblib.load("bdci_scaler.pkl")
 with open("feature_columns.json") as f:
     feature_cols = json.load(f)
 
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# LabelEncoder stored: 0=Critical, 1=High, 2=Low, 3=Moderate
+CATEGORY_MAP = {0: "Critical", 1: "High", 2: "Low", 3: "Moderate"}
 
 class UserInput(BaseModel):
     age_group: str
@@ -93,7 +94,8 @@ def root():
 def get_score(u: UserInput):
     X = prepare_features(u)
     bdci_score    = float(np.clip(model.predict(X)[0], 0, 100))
-    bdci_category = clf.predict(X)[0]
+    raw_category  = clf.predict(X)[0]
+    bdci_category = CATEGORY_MAP.get(int(raw_category), str(raw_category))
     top3          = get_top3(u)
     qw = {'SD': 0.036, '1080p': 0.072, '4K': 0.144}
     weekly_carbon = round(
@@ -144,9 +146,10 @@ def org_report(file_data: dict):
     for row in rows:
         u = UserInput(**row)
         X = prepare_features(u)
+        raw_cat = clf.predict(X)[0]
         scores.append({
             "bdci_score":    float(np.clip(model.predict(X)[0], 0, 100)),
-            "bdci_category": clf.predict(X)[0],
+            "bdci_category": CATEGORY_MAP.get(int(raw_cat), str(raw_cat)),
             "city_tier":     u.city_tier,
             "profession":    u.profession,
             "device_type":   u.device_type,
@@ -160,7 +163,3 @@ def org_report(file_data: dict):
         "by_profession":      df.groupby('profession')['bdci_score'].mean().round(2).to_dict(),
         "by_device":          df.groupby('device_type')['bdci_score'].mean().round(2).to_dict(),
     }
-
-
-
-
