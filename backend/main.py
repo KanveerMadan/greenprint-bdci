@@ -51,11 +51,13 @@ def load_resources():
     global model, clf, scaler, feature_cols, groq_client
 
     try:
-        model = joblib.load("bdci_model.pkl")
-        clf = joblib.load("bdci_classifier.pkl")
-        scaler = joblib.load("bdci_scaler.pkl")
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-        with open("feature_columns.json", "r") as f:
+        model = joblib.load(os.path.join(BASE_DIR, "bdci_model.pkl"))
+        clf = joblib.load(os.path.join(BASE_DIR, "bdci_classifier.pkl"))
+        scaler = joblib.load(os.path.join(BASE_DIR, "bdci_scaler.pkl"))
+
+        with open(os.path.join(BASE_DIR, "feature_columns.json"), "r") as f:
             feature_cols = json.load(f)
 
         groq_key = os.getenv("GROQ_API_KEY")
@@ -141,7 +143,9 @@ def get_top3(u: UserInput):
     contributions = {
         "Netflix/streaming": u.netflix_hrs_day * (
             0.167 if u.netflix_quality == "4K" else
-            0.092 if u.netflix_quality == "1080p" else 0.022
+            0.092 if u.netflix_quality == "1080p" else
+            0.05 if u.netflix_quality == "720p" else
+            0.022
         ),
         "Instagram/social media": u.instagram_hrs_day * 0.025,
         "Video calls (camera on)": u.call_on_hrs_day * 0.262,
@@ -189,9 +193,16 @@ def get_score(u: UserInput):
     bdci_category = CATEGORY_MAP.get(int(raw_category), str(raw_category))
     top3 = get_top3(u)
 
-    qw = {"SD": 0.036, "1080p": 0.072, "4K": 0.144}
+    qw = {
+        "SD": 0.036,
+        "SD/Mobile": 0.036,
+        "720p": 0.05,
+        "1080p": 0.072,
+        "4K": 0.144
+    }
+
     weekly_carbon = round(
-        u.netflix_hrs_day * qw[u.netflix_quality] * 7 +
+        u.netflix_hrs_day * qw.get(u.netflix_quality, 0.036) * 7 +
         u.instagram_hrs_day * 0.18 * 7 +
         (u.call_on_hrs_day * 0.09 + u.call_off_hrs_day * 0.03) * 7 +
         (u.emails_plain_day * 0.004 + u.emails_attach_day * 0.03) * 7 +
@@ -242,9 +253,12 @@ NUDGE 3: [action] -> Saving: [X] kgCO2/week"""
         max_tokens=300
     )
 
+    nudge_text = response.choices[0].message.content
+    lines = [line.strip() for line in nudge_text.split("\n") if line.strip()]
+
     return {
         **score_data,
-        "nudges": response.choices[0].message.content
+        "nudges": lines[:3]
     }
 
 
