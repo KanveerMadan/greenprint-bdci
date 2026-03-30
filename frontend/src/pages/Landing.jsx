@@ -1,4 +1,4 @@
-export default function Landing({ onStart }) {
+export default function Landing({ onStart, onOrg }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
       <div className="text-5xl mb-4">🌿</div>
@@ -11,9 +11,12 @@ export default function Landing({ onStart }) {
         India-adjusted · Powered by AI · Takes 2 minutes
       </p>
       <button onClick={onStart}
-              className="bg-green-600 hover:bg-green-700 text-white font-semibold
-                         px-8 py-3 rounded-full text-lg transition-colors">
+        className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-full text-lg transition-colors">
         Check my score →
+      </button>
+      <button onClick={onOrg}
+        className="mt-4 text-sm text-green-700 hover:text-green-900 underline underline-offset-2 transition-colors">
+        For organisations — generate a team carbon report
       </button>
       <p className="text-xs text-gray-300 mt-6">
         No account needed · No data stored · Open source
