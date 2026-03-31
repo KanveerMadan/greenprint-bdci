@@ -9,14 +9,8 @@ import pandas as pd
 from groq import Groq
 from dotenv import load_dotenv
 
-# -----------------------------
-# Load environment variables
-# -----------------------------
 load_dotenv()
 
-# -----------------------------
-# FastAPI app
-# -----------------------------
 app = FastAPI(title="GreenPrint BDCI API")
 
 app.add_middleware(
@@ -26,9 +20,6 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# -----------------------------
-# Globals (loaded safely later)
-# -----------------------------
 model = None
 clf = None
 scaler = None
@@ -43,9 +34,6 @@ CATEGORY_MAP = {
     3: "Moderate"
 }
 
-# -----------------------------
-# Startup event
-# -----------------------------
 @app.on_event("startup")
 def load_resources():
     global model, clf, scaler, feature_cols, groq_client
@@ -72,10 +60,6 @@ def load_resources():
         print("❌ Startup failed:", str(e))
         raise e
 
-
-# -----------------------------
-# Request model
-# -----------------------------
 class UserInput(BaseModel):
     age_group: str
     city_tier: str
@@ -97,9 +81,6 @@ class UserInput(BaseModel):
     night_usage_pct: float
 
 
-# -----------------------------
-# Feature prep
-# -----------------------------
 def prepare_features(u: UserInput):
     if scaler is None or feature_cols is None:
         raise HTTPException(status_code=500, detail="Model resources not loaded")
@@ -136,9 +117,6 @@ def prepare_features(u: UserInput):
     return scaler.transform(df)
 
 
-# -----------------------------
-# Top 3 contributors
-# -----------------------------
 def get_top3(u: UserInput):
     contributions = {
         "Netflix/streaming": u.netflix_hrs_day * (
@@ -159,9 +137,6 @@ def get_top3(u: UserInput):
     return sorted(weekly.items(), key=lambda x: x[1], reverse=True)[:3]
 
 
-# -----------------------------
-# Health check
-# -----------------------------
 @app.get("/")
 def root():
     return {"status": "GreenPrint API running"}
@@ -179,9 +154,7 @@ def health():
     }
 
 
-# -----------------------------
-# Score endpoint
-# -----------------------------
+
 @app.post("/api/score")
 def get_score(u: UserInput):
     if model is None or clf is None:
@@ -221,9 +194,6 @@ def get_score(u: UserInput):
     }
 
 
-# -----------------------------
-# Nudge endpoint
-# -----------------------------
 @app.post("/api/nudge")
 def get_nudge(u: UserInput):
     if groq_client is None:
@@ -262,9 +232,6 @@ NUDGE 3: [action] -> Saving: [X] kgCO2/week"""
     }
 
 
-# -----------------------------
-# Org report endpoint
-# -----------------------------
 @app.post("/api/org-report")
 def org_report(file_data: dict):
     rows = file_data.get("rows", [])
