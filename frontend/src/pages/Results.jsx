@@ -9,7 +9,6 @@ const LABELS = {
   High:     "Your digital carbon footprint needs attention.",
   Critical: "Your habits produce as much CO₂ as a weekly flight.",
 }
-const GAUGE_ANGLE = { Low: -90, Moderate: -30, High: 30, Critical: 80 }
 
 function Gauge({ score, category }) {
   const color = COLORS[category] || "#16a34a"
@@ -19,7 +18,7 @@ function Gauge({ score, category }) {
   const nx = cx + r * Math.cos(rad)
   const ny = cy + r * Math.sin(rad)
 
-  const arc = (startDeg, endDeg, col) => {
+  const arc = (startDeg, endDeg) => {
     const s = ((startDeg - 90) * Math.PI) / 180
     const e = ((endDeg - 90) * Math.PI) / 180
     const x1 = cx + r * Math.cos(s), y1 = cy + r * Math.sin(s)
@@ -29,16 +28,32 @@ function Gauge({ score, category }) {
 
   return (
     <svg viewBox="0 0 200 110" style={{ width: '100%', maxWidth: 260 }}>
-      <path d={arc(220, 280, '#dcfce7')} fill="none" stroke="#dcfce7" strokeWidth="10" strokeLinecap="round"/>
-      <path d={arc(280, 320, '#fef9c3')} fill="none" stroke="#fef9c3" strokeWidth="10" strokeLinecap="round"/>
-      <path d={arc(320, 360, '#ffedd5')} fill="none" stroke="#ffedd5" strokeWidth="10" strokeLinecap="round"/>
-      <path d={arc(0, 40, '#fee2e2')}   fill="none" stroke="#fee2e2" strokeWidth="10" strokeLinecap="round"/>
-      <path d={arc(220, 220 + (score/100)*220, '#000')} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" opacity="0.9"/>
+      <path d={arc(220, 280)} fill="none" stroke="#dcfce7" strokeWidth="10" strokeLinecap="round"/>
+      <path d={arc(280, 320)} fill="none" stroke="#fef9c3" strokeWidth="10" strokeLinecap="round"/>
+      <path d={arc(320, 360)} fill="none" stroke="#ffedd5" strokeWidth="10" strokeLinecap="round"/>
+      <path d={arc(0,   40)}  fill="none" stroke="#fee2e2" strokeWidth="10" strokeLinecap="round"/>
+      <path d={arc(220, 220 + (score/100)*220)} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" opacity="0.9"/>
       <line x1={cx} y1={cy} x2={nx} y2={ny} stroke={color} strokeWidth="2.5" strokeLinecap="round"/>
       <circle cx={cx} cy={cy} r="5" fill={color}/>
-      <text x={cx} y={cy + 20} textAnchor="middle" fontSize="22" fontWeight="700" fill={color} fontFamily="DM Serif Display, serif">{score}</text>
+      <text x={cx} y={cy+20} textAnchor="middle" fontSize="22" fontWeight="700" fill={color} fontFamily="DM Serif Display, serif">{score}</text>
     </svg>
   )
+}
+
+function parseNudges(nudges) {
+  if (!nudges) return []
+  // Handle string
+  if (typeof nudges === 'string') {
+    const lines = nudges.split('\n').filter(l => l.trim().startsWith('NUDGE'))
+    if (lines.length > 0) return lines
+    // If no NUDGE prefix found, split by newline and return non-empty lines
+    return nudges.split('\n').filter(l => l.trim().length > 0).slice(0, 3)
+  }
+  // Handle array
+  if (Array.isArray(nudges)) return nudges.map(n => typeof n === 'string' ? n : JSON.stringify(n))
+  // Handle object
+  if (typeof nudges === 'object') return Object.values(nudges).slice(0, 3).map(String)
+  return []
 }
 
 export default function Results({ results, onRetake }) {
@@ -50,7 +65,7 @@ export default function Results({ results, onRetake }) {
     kg: parseFloat(kg_per_week),
   }))
 
-  const nudgeList = (nudges || '').split('\n').filter(l => l.trim().startsWith('NUDGE'))
+  const nudgeList = parseNudges(nudges)
 
   const downloadCard = async () => {
     const canvas = await html2canvas(cardRef.current, { scale: 2, backgroundColor: '#fff' })
@@ -72,21 +87,15 @@ export default function Results({ results, onRetake }) {
           padding: '8px 18px', border: '1.5px solid var(--border)', borderRadius: 100,
           background: 'transparent', color: 'var(--muted)', fontSize: 13,
           fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-        }}>
-          Retake assessment
-        </button>
+        }}>Retake assessment</button>
       </div>
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px' }}>
 
-        {/* Score card (downloadable) */}
+        {/* Score card */}
         <div ref={cardRef} className="animate-scale-in" style={{
-          background: 'white',
-          borderRadius: 24,
-          border: '1px solid var(--border)',
-          padding: '40px 32px',
-          textAlign: 'center',
-          marginBottom: 20,
+          background: 'white', borderRadius: 24, border: '1px solid var(--border)',
+          padding: '40px 32px', textAlign: 'center', marginBottom: 20,
         }}>
           <p style={{ fontSize: 12, color: 'var(--muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
             Your Behavioral Digital Carbon Index
@@ -100,12 +109,7 @@ export default function Results({ results, onRetake }) {
           <p style={{ color: 'var(--muted)', fontSize: 15, marginBottom: 24, lineHeight: 1.6 }}>
             {LABELS[bdci_category]}
           </p>
-          <div style={{
-            background: 'var(--cream)',
-            borderRadius: 12,
-            padding: '16px 24px',
-            display: 'inline-block',
-          }}>
+          <div style={{ background: 'var(--cream)', borderRadius: 12, padding: '16px 24px', display: 'inline-block' }}>
             <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Weekly digital carbon</p>
             <p className="serif" style={{ fontSize: 36, color: 'var(--ink)', lineHeight: 1 }}>
               {weekly_carbon_kg} <span style={{ fontSize: 16, color: 'var(--muted)' }}>kgCO₂</span>
@@ -114,44 +118,32 @@ export default function Results({ results, onRetake }) {
           <p style={{ fontSize: 11, color: '#d1d5db', marginTop: 20 }}>greenprint-bdci.vercel.app</p>
         </div>
 
-        {/* Download button */}
+        {/* Download */}
         <button onClick={downloadCard} style={{
-          width: '100%',
-          padding: '14px',
-          border: '1.5px solid var(--border)',
-          borderRadius: 12,
-          background: 'white',
-          color: 'var(--ink)',
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-          fontFamily: 'DM Sans, sans-serif',
-          marginBottom: 32,
-          transition: 'all 0.2s',
+          width: '100%', padding: '14px', border: '1.5px solid var(--border)',
+          borderRadius: 12, background: 'white', color: 'var(--ink)',
+          fontSize: 14, fontWeight: 600, cursor: 'pointer',
+          fontFamily: 'DM Sans, sans-serif', marginBottom: 32, transition: 'all 0.2s',
         }}
           onMouseEnter={e => e.target.style.borderColor = 'var(--green-mid)'}
           onMouseLeave={e => e.target.style.borderColor = 'var(--border)'}
-        >
-          ↓ Download score card
-        </button>
+        >↓ Download score card</button>
 
-        {/* Top emitters chart */}
+        {/* Chart */}
         {chartData.length > 0 && (
           <div className="animate-fade-up-2" style={{
             background: 'white', borderRadius: 20, border: '1px solid var(--border)',
             padding: '28px', marginBottom: 20,
           }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
-              Your biggest emitters
-            </h3>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Your biggest emitters</h3>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>kgCO₂ per week</p>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 20 }}>
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12, fill: 'var(--ink)' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={v => [`${v} kgCO₂`, 'Weekly']} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false}/>
+                <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12, fill: 'var(--ink)' }} axisLine={false} tickLine={false}/>
+                <Tooltip formatter={v => [`${v} kgCO₂`, 'Weekly']} contentStyle={{ borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }}/>
                 <Bar dataKey="kg" radius={[0, 6, 6, 0]}>
-                  {chartData.map((_, i) => <Cell key={i} fill={i === 0 ? '#dc2626' : i === 1 ? '#ea580c' : '#ca8a04'} />)}
+                  {chartData.map((_, i) => <Cell key={i} fill={i === 0 ? '#dc2626' : i === 1 ? '#ea580c' : '#ca8a04'}/>)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -163,12 +155,8 @@ export default function Results({ results, onRetake }) {
           <div className="animate-fade-up-3" style={{
             background: 'white', borderRadius: 20, border: '1px solid var(--border)', padding: '28px',
           }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
-              Your personalised nudges
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>
-              AI-generated suggestions based on your specific habits
-            </p>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Your personalised nudges</h3>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>AI-generated suggestions based on your specific habits</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {nudgeList.map((text, i) => (
                 <div key={i} style={{
@@ -178,14 +166,12 @@ export default function Results({ results, onRetake }) {
                 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: '50%',
-                    background: 'var(--green-light)',
-                    color: 'var(--green-mid)',
-                    fontSize: 13, fontWeight: 700,
+                    background: 'var(--green-light)', color: 'var(--green-mid)',
+                    fontSize: 13, fontWeight: 700, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
                   }}>{i + 1}</div>
                   <p style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, margin: 0 }}>
-                    {text.replace(/^NUDGE \d+:\s*/, '')}
+                    {text.replace(/^NUDGE \d+:\s*/i, '')}
                   </p>
                 </div>
               ))}
